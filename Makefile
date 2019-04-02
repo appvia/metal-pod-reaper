@@ -6,7 +6,8 @@ ROOT_DIR=${PWD}
 HARDWARE=$(shell uname -m)
 GIT_VERSION=$(shell git describe --always --tags --dirty)
 GIT_SHA=$(shell git rev-parse HEAD)
-GOVERSION=1.10
+GOVERSION=1.11
+GO111MODULE=on
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%I:%M:%S%p')
 VERSION ?= ${GIT_VERSION}
 DEPS=$(shell go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
@@ -20,7 +21,7 @@ ARCHITECTURES=amd64
 
 .PHONY: test authors changelog build release lint cover vet
 
-default: deps build
+default: build
 
 golang:
 	@echo "--> Go Version"
@@ -44,18 +45,9 @@ authors:
 	@echo "--> Updating the AUTHORS"
 	git log --format='%aN <%aE>' | sort -u > AUTHORS
 
-dep-install:
-	@echo "--> Retrieving dependencies"
-	@dep ensure
-
 release-deps:
 	@echo "--> Installing release dependencies"
 	@go get -u github.com/mitchellh/gox
-
-deps:
-	@echo "--> Installing build dependencies"
-	@go get -u github.com/golang/dep/cmd/dep
-	$(MAKE) dep-install
 
 vet:
 	@echo "--> Running go vet $(VETARGS) ."

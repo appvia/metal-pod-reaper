@@ -1,32 +1,29 @@
 // Will detect if any node is uncontactable!
 package detector
 
-import (
-	"github.com/appvia/metal-pod-reaper/pkg/kubeutils"
-)
-
-func RunAsync(dryRun bool) chan error {
-	errorCh := make(chan error)
+func RunAsync(dryRun bool) chan (error) {
+	c := make(chan error)
 
 	go func() {
 		defer close(c)
 		if err := Run(dryRun); err != nil {
 			// Return the error to the calling thread
-			errorCh <- err
+			c <- err
 		}
 	}()
-	return errorCh
+	return c
 }
 
 // Run starts the detector thread.
-func Run(dryRun bool) {
+func Run(dryRun bool) error {
 
-	cl, err := kubeutils.BuildConfig()
+	/*
+		cl, err := kubeutils.BuildConfig()
 
-	if err != nil {
-		return err
-	}
-
+		if err != nil {
+			return err
+		}
+	*/
 	// First get all node objects from the cluster:
-
+	return nil
 }

@@ -6,13 +6,14 @@ import (
 	"github.com/appvia/metal-pod-reaper/pkg/monitor"
 )
 
-// Run starts the mpodr process with config.
-func Run(reap, dryRun bool) {
+// Run starts the mpodr (metal pod reaper) threads
+func Run(reap, dryRun bool, namespace, id string) {
 
 	// Start a background thread for running the Monitor
 	//  this will detect a quorum and invokes the reaper
 	// should NOT return
-	mCh := monitor.RunAsync(reap, dryRun)
+	m := monitor.NewMonitorReaper(reap, dryRun, namespace, id)
+	mCh := m.RunAsync()
 
 	// Start a background to run the detector
 	// should NOT return

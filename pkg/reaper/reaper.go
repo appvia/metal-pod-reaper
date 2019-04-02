@@ -8,7 +8,7 @@ import (
 )
 
 // Run starts the reaper thread.
-func Run(node string, cl kubernetes.client, dryRun bool) error {
+func Run(node string, cl *kubernetes.Clientset, dryRun bool) error {
 
 	return errors.New("Notimplimented")
 

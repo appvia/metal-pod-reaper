@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func BuildConfig() (*rest.Config, error) {
