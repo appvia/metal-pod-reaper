@@ -3,49 +3,49 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/appvia/metal-pod-reaper/pkg/mpodr"
 	"github.com/appvia/metal-pod-reaper/pkg/version"
 	"k8s.io/klog"
 )
 
+// Execute provides the entrypoint from main
 func Execute() {
 
 	klog.InitFlags(nil)
 
 	var dryRun bool
 	var reap bool
-	var version bool
+	var ver bool
 	var namespace string
-	var id string
+	var hostIP string
 
 	flag.BoolVar(&dryRun, "dry-run", true, "only report on potential changes")
 	flag.BoolVar(&reap, "reap", true, "do not run the reap facility")
 	flag.StringVar(&namespace, "namespace", "", "namespace for the master leaselock object")
-	flag.StringVar(&id, "id", "", "specify the id (defaults to hostname)")
-	flag.BoolVar(&version, "version", false, "display the version")
+	flag.StringVar(&hostIP, "hostIP", "", "specify the host ip")
+	flag.BoolVar(&ver, "version", false, "display the version")
 	flag.Parse()
 
-	if version {
-		version()
+	if ver {
+		fmt.Printf("%+v\n", version.Get())
 		os.Exit(0)
 	}
 	if namespace == "" {
-		namespace = os.Getenv("MPODR_NAMESPACE")
-	}
-	if id == "" {
-		id = os.Getenv("MPODR_ID")
-		if id == "" {
-			id = os.Getenv("HOSTNAME")
+		namespace = os.Getenv("NAMESPACE")
+		if namespace == "" {
+			// TODO get from API or /run/secrets/kubernetes.io/serviceaccount/namespace
+			klog.Fatal("Expecting NAMESPACE to be set")
 		}
 	}
-	if err := mpodr.Run(reap, dryRun, namespace, id); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	if hostIP == "" {
+		hostIP = os.Getenv("HOST_IP")
+		if hostIP == "" {
+			klog.Fatal("Expecting HOST_IP to be set")
+		}
 	}
-}
-
-func version(cmd *cobra.Command, args []string) {
-		fmt.Printf("%+v\n", version.Get())
-	},
+	if err := mpodr.Run(reap, dryRun, namespace, hostIP); err != nil {
+		klog.Fatalf("Metal POD reaper failed:%s", err)
+	}
 }

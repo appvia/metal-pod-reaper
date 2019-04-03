@@ -2,17 +2,39 @@
 package reaper
 
 import (
-	"errors"
+	"fmt"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-// Run starts the reaper thread.
-func Run(node string, cl *kubernetes.Clientset, dryRun bool) error {
+// Reap starts deleteing pods from an UnReady node
+// - Should ONLY delete STS and Deployment Pods
+// - Does NOT need to cordon (as the node is UnReady)
+func Reap(node *v1.Node, cl *kubernetes.Clientset, dryRun bool) error {
 
-	return errors.New("Notimplimented")
-
-	/*
-	  Should maybe cordon a node and reap pods here!
-	*/
+	// Get the pods on this node
+	pods, err := cl.CoreV1().Pods("").List(metav1.ListOptions{
+		FieldSelector: "spec.nodeName=" + node.Name,
+	})
+	if err != nil {
+		return fmt.Errorf("error reaping: %s", node.Name)
+	}
+	var dryRunValue []string
+	if dryRun {
+		dryRunValue = []string{"All"}
+	}
+	// Define a 0 grace period (equiv to delete now)
+	var gracePeriod int64
+	// Equiv to force?
+	orphanDependents := true
+	for _, pod := range pods.Items {
+		cl.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{
+			DryRun:             dryRunValue,
+			OrphanDependents:   &orphanDependents,
+			GracePeriodSeconds: &gracePeriod,
+		})
+	}
+	return nil
 }

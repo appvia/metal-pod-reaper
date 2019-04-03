@@ -1,6 +1,6 @@
 # Metal Pod Reaper
 
-Automatically recover Stateful application Pods when a Kubernetes node (on metal) is down.
+Automatically recover Stateful application Pods when a Kubernetes node (on metal) can **safely** be established to be down.
 
 - [Details](#details)
 - [Usage](#usage)
@@ -9,7 +9,11 @@ Automatically recover Stateful application Pods when a Kubernetes node (on metal
 
 ## Details
 
-In Kubernetes, when there is no Cloud Provider integration, there is no automated way of automatically recovering workloads (pods) when the status of a node is Unknown.
+In Kubernetes, when there is no Cloud Provider integration, there is no automated way of automatically recovering workloads (pods) when the status of a node is Unknown / NotReady.
+
+### Safe Node Checks
+- there is a flat network (single host Network)
+- all node peers can detect the node is uncontactable (ping)
 
 ## Usage
 

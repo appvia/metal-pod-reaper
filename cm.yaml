@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metal-pod-reaper.appvia.io.10.11.12.13
+  namespace: default
+data:
+  special.type: charm
