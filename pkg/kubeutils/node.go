@@ -8,7 +8,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
@@ -31,16 +30,27 @@ type NetNode struct {
 
 // GetUnreadyNodes returns all the nodes that could be down
 func GetUnreadyNodes(c clientset.Interface) (*v1.NodeList, error) {
-	// Get all the not Ready nodes
-	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{FieldSelector: fields.Set{
-		"spec.unschedulable": "true",
-	}.AsSelector().String()})
-
+	// First get all the nodes
+	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		// Maybe we should be retrying...?
 		return nil, fmt.Errorf("can't list nodes: %s", err)
 	}
-	return nodes, nil
+
+	unReadyNodes := make([]v1.Node, 0)
+	for _, n := range nodes.Items {
+		for _, c := range n.Status.Conditions {
+			if (c.Type == v1.NodeReady) {
+				klog.V(5).Infof("got node type %s for node %s (with status %s)", v1.NodeReady, n.Name, c.Status)
+				if (c.Status != v1.ConditionTrue) {
+					klog.V(5).Infof("NotReady Node found %s", n.Name)
+					unReadyNodes = append(unReadyNodes, n)
+				}
+				continue // no need to inspect other node conditions
+			}
+		}
+	}
+	return &v1.NodeList{Items: unReadyNodes}, nil
 }
 
 // GetNodeInternalIP returns the internal IP address of the node object
@@ -135,7 +145,7 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 	}
 	cmList, err := c.CoreV1().ConfigMaps(namespace).List(cmOptions)
 	if err != nil {
-		return nil, fmt.Errorf("error getting configmaps", err)
+		return nil, fmt.Errorf("error getting configmaps: %s", err)
 	}
 	allNodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {

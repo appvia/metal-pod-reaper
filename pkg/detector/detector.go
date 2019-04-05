@@ -78,12 +78,12 @@ func (d *Detector) Run() error {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		if len(unreadyNodes.Items) <= 1 {
+		if len(unreadyNodes.Items) < 1 {
 			klog.V(3).Info("node down detector - all nodes ready")
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		klog.V(2).Info("unready nodes detected")
+		klog.Info("unready nodes detected")
 		// For all the unready check which ones are checkable (have pingable address...)
 		checkableNodes := make(map[string]nodeDown)
 		for _, node := range unreadyNodes.Items {
