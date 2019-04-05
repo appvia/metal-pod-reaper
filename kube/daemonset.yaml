@@ -1,5 +1,3 @@
-
----
 apiVersion: apps/v1beta2
 kind: DaemonSet
 metadata:
@@ -22,6 +20,7 @@ spec:
         operator: "Exists"
       # We have to be able to ping nodes directly on the host network
       hostNetwork: true
+      serviceAccountName: metal-pod-reaper
       containers:
       - name: mpodr
         image: quay.io/appvia/mpodr:v0.1.0

@@ -1,0 +1,128 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: metal-pod-reaper
+rules:
+- apiGroups: ['']
+  resources: [events]
+  verbs: [create, patch, update]
+- apiGroups: ['']
+  resources: [nodes]
+  verbs: [get, watch, list, update]
+- apiGroups: ['']
+  resources: [nodes/status]
+  verbs: [patch]
+- apiGroups: ['']
+  resources:
+  - pods
+  verbs:
+  - get
+  - watch
+  - list
+  - create
+- apiGroups: ['']
+  resources: [pods]
+  verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: metal-pod-reaper
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: metal-pod-reaper
+subjects:
+- kind: ServiceAccount
+  name: metal-pod-reaper
+  namespace: kube-system
+---
+apiVersion: extensions/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: metal-pod-reaper
+spec:
+  fsGroup:
+    rule: RunAsAny
+  requiredDropCapabilities:
+  - SETUID
+  - SETGID
+  runAsUser:
+    rule: MustRunAsNonRoot
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  hostNetwork: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metal-pod-reaper
+  labels:
+    name: metal-pod-reaper
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: metal-pod-reaper
+  labels:
+    name: metal-pod-reaper
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - watch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - patch
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  resourceNames:
+  - metal-pod-reaper
+  verbs:
+  - use
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: metal-pod-reaper
+  labels:
+    name: metal-pod-reaper
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: metal-pod-reaper
+subjects:
+- kind: ServiceAccount
+  name: metal-pod-reaper
