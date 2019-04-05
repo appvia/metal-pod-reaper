@@ -2,6 +2,7 @@ NAME=mpodr
 AUTHOR=appvia
 AUTHOR_EMAIL=lewis.marshall@appvia.io
 BINARY ?= ${NAME}
+CONTAINER ?= quay.io/${AUTHOR}/${NAME}
 ROOT_DIR=${PWD}
 HARDWARE=$(shell uname -m)
 GIT_VERSION=$(shell git describe --always --tags --dirty)
@@ -32,11 +33,18 @@ build:
 	mkdir -p bin
 	go build -ldflags "${LFLAGS}" -o bin/${NAME} *.go
 
-release: clean deps release-deps
+docker_build: release
+	@echo "--> Creating a container"
+	docker build . -t ${CONTAINER}:${VERSION}
+
+docker_push:
+	@echo "--> Pushing container"
+	docker push ${CONTAINER}:${VERSION}
+
+release: clean release-deps
 	@echo "--> Compiling all the static binaries"
 	mkdir -p bin
-	gox -arch="${ARCHITECTURES}" -os="${PLATFORMS}" -ldflags "-w ${LFLAGS}" -output=./bin/{{.Dir}}_{{.OS}}_{{.Arch}} ./...
-	cd ./bin && sha256sum * > checksum.txt && cd -
+	gox -arch="${ARCHITECTURES}" -os="${PLATFORMS}" -ldflags "-w ${LFLAGS}" -output=./bin/${NAME}_{{.OS}}_{{.Arch}} ./...
 
 clean:
 	rm -rf ./bin 2>/dev/null

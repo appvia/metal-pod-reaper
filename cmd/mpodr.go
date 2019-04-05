@@ -22,9 +22,9 @@ func Execute() {
 	var hostIP string
 
 	flag.BoolVar(&dryRun, "dry-run", true, "only report on potential changes")
-	flag.BoolVar(&reap, "reap", true, "do not run the reap facility")
+	flag.BoolVar(&reap, "no-reap", true, "do not run the reap facility")
 	flag.StringVar(&namespace, "namespace", "", "namespace for the master leaselock object")
-	flag.StringVar(&hostIP, "hostIP", "", "specify the host ip")
+	flag.StringVar(&hostIP, "host-ip", "", "specify the host ip")
 	flag.BoolVar(&ver, "version", false, "display the version")
 	flag.Parse()
 
