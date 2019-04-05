@@ -13,8 +13,11 @@ import (
 	"github.com/appvia/metal-pod-reaper/pkg/reaper"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 )
 
@@ -49,6 +52,7 @@ func New(reap, dryRun bool, namespace, hostIP string) *Monitor {
 // RunAsync starts the monitor thread
 // - uses a channel for error handling
 func (m *Monitor) RunAsync() chan error {
+	klog.V(5).Info("starting leader elect bit")
 	go func() {
 		defer close(m.c)
 		if err := m.runLeaderElect(); err != nil {
@@ -56,6 +60,7 @@ func (m *Monitor) RunAsync() chan error {
 			m.c <- err
 		}
 	}()
+	klog.V(5).Info("starting leader elect bit started")
 	return m.c
 }
 
@@ -73,6 +78,7 @@ func (m *Monitor) runMonitorLoop() error {
 	if err != nil {
 		return err
 	}
+	klog.Info("started master")
 	var deadNodes []*v1.Node
 	for {
 		// Don't thrash here..
@@ -83,6 +89,8 @@ func (m *Monitor) runMonitorLoop() error {
 		deadNodes, err = kubeutils.GetUnreachableNodes(client, m.namespace)
 		if err != nil {
 			klog.Errorf("error getting nodes reported as unreachable: %s", err)
+			// Try again
+			continue
 		}
 		// reap any nodes as required...
 		if m.reap && len(deadNodes) > 0 {
@@ -99,6 +107,7 @@ func (m *Monitor) runMonitorLoop() error {
 // - Based on Kubernetes master locking example
 // - see: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
 func (m *Monitor) runLeaderElect() error {
+	klog.Info("started master component (not master yet)")
 	const leaseLockName = "metal-pod-reaper"
 
 	cfg, err := kubeutils.BuildConfig()
@@ -115,8 +124,15 @@ func (m *Monitor) runLeaderElect() error {
 		}
 	}
 
+	klog.V(4).Info("Creating event broadcaster")
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(klog.Infof)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: leaseLockName})
+
 	rlConfig := resourcelock.ResourceLockConfig{
-		Identity: m.hostIP,
+		Identity:      m.hostIP,
+		EventRecorder: recorder,
 	}
 	lock, err := resourcelock.New(
 		resourcelock.ConfigMapsResourceLock,
@@ -152,4 +168,8 @@ func (m *Monitor) runLeaderElect() error {
 
 	leaderelection.RunOrDie(context.TODO(), leaderConfig)
 	return errors.New("leader locking exited master")
+}
+
+func recordEvent(e string) {
+	klog.V(2).Infof("event: %s", e)
 }

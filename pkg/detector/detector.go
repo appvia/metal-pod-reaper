@@ -65,10 +65,12 @@ func (d *Detector) Run() error {
 		return err
 	}
 	d.client = clientset.NewForConfigOrDie(cfg)
+	klog.Info("node down detector started")
 	for {
 		// Don't thrash here..
 		time.Sleep(5 * time.Second)
 
+		klog.V(5).Info("getting unready nodes")
 		unreadyNodes, err := kubeutils.GetUnreadyNodes(d.client)
 		if err != nil {
 			klog.Errorf("error getting unschedulable nodes: %s", err)
@@ -77,7 +79,7 @@ func (d *Detector) Run() error {
 			continue
 		}
 		if len(unreadyNodes.Items) <= 1 {
-			klog.V(2).Info("All nodes ready")
+			klog.V(3).Info("node down detector - all nodes ready")
 			time.Sleep(10 * time.Second)
 			continue
 		}

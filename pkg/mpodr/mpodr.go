@@ -6,6 +6,7 @@ import (
 
 	"github.com/appvia/metal-pod-reaper/pkg/detector"
 	"github.com/appvia/metal-pod-reaper/pkg/monitor"
+	"k8s.io/klog"
 )
 
 // Run starts the mpodr (metal pod reaper) threads
@@ -15,12 +16,16 @@ func Run(reap, dryRun bool, namespace, hostIP string) error {
 	//  this will detect a quorum and invokes the reaper
 	// should NOT return
 	m := monitor.New(reap, dryRun, namespace, hostIP)
+	klog.V(2).Info("starting monitor")
 	mCh := m.RunAsync()
+	klog.V(10).Info("master started - main thread continuing")
 
 	// Start a background to run the detector
 	// should NOT return
 	d := detector.New(dryRun, namespace, hostIP)
+	klog.V(2).Info("starting node down detector")
 	dCh := d.RunAsync()
+	klog.V(10).Info("node down detector started - main thread continuing")
 
 	c := make(chan error)
 	// Merge any errors into a single channels
