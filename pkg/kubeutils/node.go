@@ -13,11 +13,11 @@ import (
 )
 
 const (
-	nodeConfigMapNamePrefix      = "unreachable-nodes-from.mprodr.x.x.x.x"
+	nodeConfigMapNamePrefix      = "unreachable-nodes-from.mprodr"
 	configMapKeyLastChecked      = "lastChecked"
 	configMapKeyUnreachableNodes = "unreachableNodesCSV"
 	configMapKeyCheckedBy        = "checkedByIP"
-	configMapLabelName           = "unreachable-nodes-from.mprodr"
+	configMapLabelName           = "unreachable-nodes"
 	configMapLabelValue          = "true"
 	configMapValidFor            = 60 * time.Second
 )
@@ -40,9 +40,9 @@ func GetUnreadyNodes(c clientset.Interface) (*v1.NodeList, error) {
 	unReadyNodes := make([]v1.Node, 0)
 	for _, n := range nodes.Items {
 		for _, c := range n.Status.Conditions {
-			if (c.Type == v1.NodeReady) {
+			if c.Type == v1.NodeReady {
 				klog.V(5).Infof("got node type %s for node %s (with status %s)", v1.NodeReady, n.Name, c.Status)
-				if (c.Status != v1.ConditionTrue) {
+				if c.Status != v1.ConditionTrue {
 					klog.V(5).Infof("NotReady Node found %s", n.Name)
 					unReadyNodes = append(unReadyNodes, n)
 				}
@@ -114,12 +114,12 @@ func ReportUnreachableIPs(c clientset.Interface, unreachableNodes []NetNode, rep
 	_, err := c.CoreV1().ConfigMaps(namespace).Get(cmName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			create = false
+			create = true
 		} else {
 			return fmt.Errorf("error discovering if configmap %s exists: %s", cmName, err)
 		}
 	} else {
-		create = true
+		create = false
 	}
 	if create {
 		_, err = c.CoreV1().ConfigMaps(namespace).Create(cm)

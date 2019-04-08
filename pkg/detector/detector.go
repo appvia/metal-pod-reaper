@@ -129,7 +129,8 @@ func (d *Detector) Run() error {
 		}
 		var unReachableNodes []kubeutils.NetNode
 		// Now wait till the results are in for all nodes:
-		for nodeIndex := 1; nodeIndex >= len(checkableNodes); nodeIndex++ {
+		for nodeIndex := 1; nodeIndex <= len(checkableNodes); nodeIndex++ {
+			klog.V(4).Infof("waiting for node result %d of %d", nodeIndex, len(checkableNodes))
 			nodeResult := <-results
 			klog.V(4).Infof("got node result %d of %d", nodeIndex, len(checkableNodes))
 			if nodeResult.Err != nil {
@@ -138,14 +139,19 @@ func (d *Detector) Run() error {
 				if nodeResult.IsNodeDown {
 					klog.V(1).Infof("unreachable node detetcted %s", nodeResult.NetNode.IP)
 					unReachableNodes = append(unReachableNodes, nodeResult.NetNode)
+				} else {
+					klog.V(2).Infof("unready node still reachable %s", nodeResult.NetNode.IP)
 				}
 			}
+			klog.V(4).Infof("completed processing node result %d of %d", nodeIndex, len(checkableNodes))
 		}
+		klog.V(4).Infof("we have reported on %d unreachable nodes", len(unReachableNodes))
 		if len(unReachableNodes) > 0 {
 			// Report on all failed nodes together:
 			if err := kubeutils.ReportUnreachableIPs(d.client, unReachableNodes, d.hostIP, d.namespace); err != nil {
-				klog.V(2).Info("successfully reported on nodes down...")
+				klog.Errorf("problem reporting unreachable nodes: %s", err)
 			}
+			klog.V(2).Info("completed any reported on nodes down...")
 		}
 	}
 }
