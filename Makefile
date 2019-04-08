@@ -15,10 +15,10 @@ DEPS=$(shell go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
 PACKAGES=$(shell go list ./...)
 GOFILES_NOVENDOR=$(shell find . -type f -name '*.go' -not -path "./vendor/*")
 VERSION_PKG=$(shell go list ./pkg/version)
-LFLAGS ?= -X ${VERSION_PKG}.gitVersion=${GIT_VERSION} -X ${VERSION_PKG}.gitSha=${GIT_SHA}
+LDFLAGS ?= '-extldflags "-static"' -X ${VERSION_PKG}.gitVersion=${GIT_VERSION} -X ${VERSION_PKG}.gitSha=${GIT_SHA}
 VETARGS ?= -asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -structtags -unsafeptr
-PLATFORMS=linux
-ARCHITECTURES=amd64
+PLATFORM=linux
+ARCH=amd64
 
 .PHONY: test authors changelog build release lint cover vet
 
@@ -31,7 +31,7 @@ golang:
 build:
 	@echo "--> Compiling the project"
 	mkdir -p bin
-	go build -ldflags "${LFLAGS}" -o bin/${NAME} *.go
+	go build -ldflags "${LDFLAGS}" -o bin/${NAME} *.go
 
 build_caps: build
 	sudo setcap cap_net_raw=+ep bin/${NAME}
@@ -44,10 +44,10 @@ docker_push:
 	@echo "--> Pushing container"
 	docker push ${CONTAINER}:${VERSION}
 
-release: clean release-deps
+release: clean
 	@echo "--> Compiling all the static binaries"
 	mkdir -p bin
-	gox -arch="${ARCHITECTURES}" -os="${PLATFORMS}" -ldflags "-w ${LFLAGS}" -output=./bin/${NAME}_{{.OS}}_{{.Arch}} ./...
+	 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o ./bin/${NAME}_${PLATFORM}_${ARCH} *.go
 
 clean:
 	rm -rf ./bin 2>/dev/null
