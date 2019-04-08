@@ -144,6 +144,7 @@ func isNodeDown(ip string) (bool, error) {
 		return false, err
 	}
 	pinger.Count = pingCount
+	pinger.SetPrivileged(true)
 	pinger.Run()
 	if pinger.Statistics().PacketLoss == 100 {
 		// This is a dead node from here - indicate this to the cluster...
