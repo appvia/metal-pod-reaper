@@ -33,6 +33,8 @@ func Reap(node *v1.Node, cl *kubernetes.Clientset, dryRun bool) error {
 	// Equiv to force?
 	orphanDependents := true
 	for _, pod := range pods.Items {
+		// could ignore daemonsets or be specific to STS or deploys with volumes
+		// ...but it's a dead node - why care?
 		klog.Infof("reaping %s from %s (dry-run=%t)", pod.Name, node.Name, dryRun)
 		err := cl.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{
 			DryRun:             dryRunValue,
