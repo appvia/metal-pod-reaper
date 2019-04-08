@@ -147,6 +147,8 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 	if err != nil {
 		return nil, fmt.Errorf("error getting configmaps: %s", err)
 	}
+	klog.V(4).Infof("got %d configmaps with matching labels", len(cmList.Items))
+
 	allNodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		// Maybe we should be retrying...?
@@ -158,6 +160,7 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 		return nil, fmt.Errorf("problem getting list of UnReady nodes %s", err)
 	}
 	reportingQuorum := len(allNodes.Items) - len(unreadyNodes.Items)
+	klog.V(4).Infof("got results from %d nodes ", reportingQuorum)
 	unReachableReportCountsByHost := make(map[string]int)
 	for _, cm := range cmList.Items {
 		// check the cm checkTime is valid:
@@ -168,6 +171,7 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 			// discount this report
 			continue
 		}
+		klog.V(4).Infof("got a report time %s from a node", reportTime)
 		if reportTime.Before(time.Now().Add(configMapValidFor)) {
 			// REAP contender
 			for _, nodeName := range strings.Split((cm.Data[configMapKeyUnreachableNodes]), ",") {
@@ -178,6 +182,7 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 	// Work out if all nodes that have reported agree (above the quorum threashold)
 	for _, node := range unreadyNodes.Items {
 		if _, ok := unReachableReportCountsByHost[node.Name]; ok {
+			klog.V(4).Infof("%d nodes have reported %s as unreachable (quorum is %d)", unReachableReportCountsByHost[node.Name], node.Name, reportingQuorum)
 			if unReachableReportCountsByHost[node.Name] >= reportingQuorum {
 				unreachableNodes = append(unreachableNodes, &node)
 			}

@@ -82,6 +82,7 @@ func (m *Monitor) runMonitorLoop() error {
 	var deadNodes []*v1.Node
 	for {
 		// Don't thrash here..
+		klog.V(4).Info("little pause before work")
 		time.Sleep(pausePollingSecs)
 
 		// Get all the nodes - that have been reported as UnReachable...
@@ -92,11 +93,14 @@ func (m *Monitor) runMonitorLoop() error {
 			// Try again
 			continue
 		}
+		klog.V(3).Infof("got an unreachable node list (%d nodes)", len(deadNodes))
+
 		// reap any nodes as required...
 		if m.reap && len(deadNodes) > 0 {
+			klog.V(4).Info("We are set to reap")
 			for _, node := range deadNodes {
 				if err := reaper.Reap(node, client, true); err != nil {
-					klog.Errorf("error reaping: %s", node.Name)
+					klog.Errorf("error reaping %s, %s", node.Name, err)
 				}
 			}
 		}
