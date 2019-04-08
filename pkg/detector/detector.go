@@ -108,23 +108,34 @@ func (d *Detector) Run() error {
 				// Get the node details
 				result := checkableNodes[nodeName]
 				// do the check for this node
+				klog.V(4).Infof("about to check node %s with ip %s", nodeName, result.NetNode.IP)
 				nodeDown, err := isNodeDown(result.NetNode.IP)
 				// record the results
 				result.Err = err
 				result.IsNodeDown = nodeDown
+				if result.Err != nil {
+					klog.V(4).Infof("error checking node %s, %s", result.NetNode.IP, result.Err)
+				} else {
+					if nodeDown {
+						klog.V(4).Infof("node %s is unreachable, repeat NOT reachable", result.NetNode.IP)
+					} else {
+						klog.V(4).Infof("node %s is reachable", result.NetNode.IP)
+					}
+				}
 				// Put the result on the channel (signal that the result is in)...
 				results <- result
 			}(node.NetNode.Node.Name)
 		}
 		var unReachableNodes []kubeutils.NetNode
 		// Now wait till the results are in for all nodes:
-		for _, node := range checkableNodes {
+		for nodeIndex := 1; nodeIndex >= len(checkableNodes); nodeIndex++ {
 			nodeResult := <-results
+			klog.V(4).Infof("got node result %d of %d", nodeIndex, len(checkableNodes))
 			if nodeResult.Err != nil {
-				klog.Errorf("problem reporting on node ip %s: %s", node.NetNode.IP, nodeResult.Err)
+				klog.Errorf("problem reporting on node ip %s: %s", nodeResult.NetNode.IP, nodeResult.Err)
 			} else {
 				if nodeResult.IsNodeDown {
-					klog.V(1).Infof("unreachable node detetcted %s", node.NetNode.Node.Name)
+					klog.V(1).Infof("unreachable node detetcted %s", nodeResult.NetNode.IP)
 					unReachableNodes = append(unReachableNodes, nodeResult.NetNode)
 				}
 			}
