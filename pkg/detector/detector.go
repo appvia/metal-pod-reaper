@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/appvia/metal-pod-reaper/pkg/kubeutils"
-	"github.com/sparrc/go-ping"
+	pinger "github.com/sparrc/go-ping"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
 
 const (
 	pingCount            = 5
+	pingTimeout          = time.Second * pingCount
 	detectorCMNamePrefix = "metal-pod-reaper"
 	detectorCMPrefix     = "UnReachableIp"
 	detectorCMSuffix     = "NodeName"
@@ -150,10 +151,11 @@ func (d *Detector) Run() error {
 }
 
 func isNodeDown(ip string) (bool, error) {
-	pinger, err := ping.NewPinger(ip)
+	pinger, err := pinger.NewPinger(ip)
 	if err != nil {
 		return false, err
 	}
+	pinger.Timeout = pingTimeout
 	pinger.Count = pingCount
 	pinger.SetPrivileged(true)
 	pinger.Run()
