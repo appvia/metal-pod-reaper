@@ -99,7 +99,7 @@ func (m *Monitor) runMonitorLoop() error {
 		if m.reap && len(deadNodes) > 0 {
 			klog.V(4).Info("We are set to reap")
 			for _, node := range deadNodes {
-				if err := reaper.Reap(node, client, true); err != nil {
+				if err := reaper.Reap(node, client, m.dryRun); err != nil {
 					klog.Errorf("error reaping %s, %s", node.Name, err)
 				}
 			}
