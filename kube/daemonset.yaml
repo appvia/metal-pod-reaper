@@ -36,3 +36,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        securityContext:
+          capabilities:
+            add:
+            - NET_RAW
