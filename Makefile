@@ -17,7 +17,7 @@ GOFILES_NOVENDOR=$(shell find . -type f -name '*.go' -not -path "./vendor/*")
 VERSION_PKG=$(shell go list ./pkg/version)
 LFLAGS ?= -X ${VERSION_PKG}.gitVersion=${GIT_VERSION} -X ${VERSION_PKG}.gitSha=${GIT_SHA}
 VETARGS ?= -asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -structtags -unsafeptr
-PLATFORMS=linux windows
+PLATFORMS=linux
 ARCHITECTURES=amd64
 
 .PHONY: test authors changelog build release lint cover vet
@@ -32,6 +32,9 @@ build:
 	@echo "--> Compiling the project"
 	mkdir -p bin
 	go build -ldflags "${LFLAGS}" -o bin/${NAME} *.go
+
+build_caps: build
+	sudo setcap cap_net_raw=+ep bin/${NAME}
 
 docker_build: release
 	@echo "--> Creating a container"
