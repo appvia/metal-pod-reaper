@@ -16,14 +16,6 @@ jobs:
      - checkout
      - run: make docker_build
 
-  release:
-    docker:
-      - image: circleci/golang:1.12
-    working_directory: /go/src/github.com/appvia/metal-pod-reaper
-    steps:
-      - checkout
-      - run: make release
-
   docker_release:
     machine: true
     steps:
@@ -39,12 +31,6 @@ workflows:
     jobs:
       - build
       - docker_build
-      - release:
-          filters:
-            tags:
-              only: /^v.*/
-            branches:
-              ignore: /.*/
       - docker_release:
           filters:
             tags:
