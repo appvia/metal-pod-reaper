@@ -8,15 +8,14 @@ HARDWARE=$(shell uname -m)
 GIT_VERSION=$(shell git describe --always --tags --dirty)
 GIT_SHA=$(shell git rev-parse HEAD)
 GOVERSION=1.11
-GO111MODULE=on
+export GO111MODULE=on
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%I:%M:%S%p')
 VERSION ?= ${GIT_VERSION}
 DEPS=$(shell go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
 PACKAGES=$(shell go list ./...)
-GOFILES_NOVENDOR=$(shell find . -type f -name '*.go' -not -path "./vendor/*")
 VERSION_PKG=$(shell go list ./pkg/version)
 LDFLAGS ?= '-extldflags "-static"' -X ${VERSION_PKG}.gitVersion=${GIT_VERSION} -X ${VERSION_PKG}.gitSha=${GIT_SHA}
-VETARGS ?= -asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -structtags -unsafeptr
+VETARGS ?= -asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -unsafeptr
 PLATFORM=linux
 ARCH=amd64
 
@@ -36,7 +35,7 @@ build:
 build_caps: build
 	sudo setcap cap_net_raw=+ep bin/${NAME}
 
-docker_build: release
+docker_build:
 	@echo "--> Creating a container"
 	docker build . -t ${CONTAINER}:${VERSION}
 
@@ -56,10 +55,6 @@ authors:
 	@echo "--> Updating the AUTHORS"
 	git log --format='%aN <%aE>' | sort -u > AUTHORS
 
-release-deps:
-	@echo "--> Installing release dependencies"
-	@go get -u github.com/mitchellh/gox
-
 vet:
 	@echo "--> Running go vet $(VETARGS) ."
 	@go tool vet 2>/dev/null ; if [ $$? -eq 3 ]; then \
@@ -70,21 +65,21 @@ vet:
 lint:
 	@echo "--> Running golint"
 	@which golint 2>/dev/null ; if [ $$? -eq 1 ]; then \
-		go get -u github.com/golang/lint/golint; \
+		go get -u golang.org/x/lint/golint; \
 	fi
 	@golint .
 
 gofmt:
 	@echo "--> Running gofmt check"
-	@gofmt -s -l $(GOFILES_NOVENDOR) | grep -q \.go ; if [ $$? -eq 0 ]; then \
+	@gofmt -s -l $(PACKAGES) | grep -q \.go ; if [ $$? -eq 0 ]; then \
       echo "we have unformatted files - run 'make applygofmt' to apply"; \
-			gofmt -s -d -l ${GOFILES_NOVENDOR}; \
+			gofmt -s -d -l ${PACKAGES}; \
       exit 1; \
     fi
 
 applygofmt:
 	@echo "--> Running gofmt apply"
-	@gofmt -s -l -w $(GOFILES_NOVENDOR)
+	@gofmt -s -l -w $(PACKAGES)
 
 bench:
 	@echo "--> Running go bench"
@@ -101,10 +96,7 @@ cover:
 
 test:
 	@echo "--> Running the tests"
-	  @if [ ! -d "vendor" ]; then \
-    make dep-install; \
-  fi
-	@go test -v ${PACKAGES}
+	@go test -v
 	@$(MAKE) cover
 
 src:
