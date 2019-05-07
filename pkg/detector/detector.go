@@ -115,7 +115,7 @@ func (d *Detector) Run() error {
 				result.Err = err
 				result.IsNodeDown = nodeDown
 				if result.Err != nil {
-					klog.V(4).Infof("error checking node %s, %s", result.NetNode.IP, result.Err)
+					klog.Errorf("error checking node %s, %s", result.NetNode.IP, result.Err)
 				} else {
 					if nodeDown {
 						klog.V(4).Infof("node %s is unreachable, repeat NOT reachable", result.NetNode.IP)
@@ -137,7 +137,7 @@ func (d *Detector) Run() error {
 				klog.Errorf("problem reporting on node ip %s: %s", nodeResult.NetNode.IP, nodeResult.Err)
 			} else {
 				if nodeResult.IsNodeDown {
-					klog.V(1).Infof("unreachable node detetcted %s", nodeResult.NetNode.IP)
+					klog.Warningf("unreachable node detected %s", nodeResult.NetNode.IP)
 					unReachableNodes = append(unReachableNodes, nodeResult.NetNode)
 				} else {
 					klog.V(2).Infof("unready node still reachable %s", nodeResult.NetNode.IP)
