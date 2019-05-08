@@ -8,17 +8,16 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 )
 
 const (
-	nodeConfigMapNamePrefix      = "unreachable-nodes-from.mprodr.x.x.x.x"
+	nodeConfigMapNamePrefix      = "unreachable-nodes-from.mprodr"
 	configMapKeyLastChecked      = "lastChecked"
 	configMapKeyUnreachableNodes = "unreachableNodesCSV"
 	configMapKeyCheckedBy        = "checkedByIP"
-	configMapLabelName           = "unreachable-nodes-from.mprodr"
+	configMapLabelName           = "unreachable-nodes"
 	configMapLabelValue          = "true"
 	configMapValidFor            = 60 * time.Second
 )
@@ -31,16 +30,27 @@ type NetNode struct {
 
 // GetUnreadyNodes returns all the nodes that could be down
 func GetUnreadyNodes(c clientset.Interface) (*v1.NodeList, error) {
-	// Get all the not Ready nodes
-	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{FieldSelector: fields.Set{
-		"spec.unschedulable": "true",
-	}.AsSelector().String()})
-
+	// First get all the nodes
+	nodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		// Maybe we should be retrying...?
 		return nil, fmt.Errorf("can't list nodes: %s", err)
 	}
-	return nodes, nil
+
+	unReadyNodes := make([]v1.Node, 0)
+	for _, n := range nodes.Items {
+		for _, c := range n.Status.Conditions {
+			if c.Type == v1.NodeReady {
+				klog.V(5).Infof("got node type %s for node %s (with status %s)", v1.NodeReady, n.Name, c.Status)
+				if c.Status != v1.ConditionTrue {
+					klog.V(5).Infof("NotReady Node found %s", n.Name)
+					unReadyNodes = append(unReadyNodes, n)
+				}
+				continue // no need to inspect other node conditions
+			}
+		}
+	}
+	return &v1.NodeList{Items: unReadyNodes}, nil
 }
 
 // GetNodeInternalIP returns the internal IP address of the node object
@@ -104,12 +114,12 @@ func ReportUnreachableIPs(c clientset.Interface, unreachableNodes []NetNode, rep
 	_, err := c.CoreV1().ConfigMaps(namespace).Get(cmName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			create = false
+			create = true
 		} else {
 			return fmt.Errorf("error discovering if configmap %s exists: %s", cmName, err)
 		}
 	} else {
-		create = true
+		create = false
 	}
 	if create {
 		_, err = c.CoreV1().ConfigMaps(namespace).Create(cm)
@@ -135,8 +145,10 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 	}
 	cmList, err := c.CoreV1().ConfigMaps(namespace).List(cmOptions)
 	if err != nil {
-		return nil, fmt.Errorf("error getting configmaps", err)
+		return nil, fmt.Errorf("error getting configmaps: %s", err)
 	}
+	klog.V(4).Infof("got %d configmaps with matching labels", len(cmList.Items))
+
 	allNodes, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		// Maybe we should be retrying...?
@@ -148,6 +160,7 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 		return nil, fmt.Errorf("problem getting list of UnReady nodes %s", err)
 	}
 	reportingQuorum := len(allNodes.Items) - len(unreadyNodes.Items)
+	klog.V(4).Infof("got results from %d nodes ", reportingQuorum)
 	unReachableReportCountsByHost := make(map[string]int)
 	for _, cm := range cmList.Items {
 		// check the cm checkTime is valid:
@@ -158,6 +171,7 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 			// discount this report
 			continue
 		}
+		klog.V(4).Infof("got a report time %s from a node", reportTime)
 		if reportTime.Before(time.Now().Add(configMapValidFor)) {
 			// REAP contender
 			for _, nodeName := range strings.Split((cm.Data[configMapKeyUnreachableNodes]), ",") {
@@ -168,6 +182,7 @@ func GetUnreachableNodes(c clientset.Interface, namespace string) ([]*v1.Node, e
 	// Work out if all nodes that have reported agree (above the quorum threashold)
 	for _, node := range unreadyNodes.Items {
 		if _, ok := unReachableReportCountsByHost[node.Name]; ok {
+			klog.V(4).Infof("%d nodes have reported %s as unreachable (quorum is %d)", unReachableReportCountsByHost[node.Name], node.Name, reportingQuorum)
 			if unReachableReportCountsByHost[node.Name] >= reportingQuorum {
 				unreachableNodes = append(unreachableNodes, &node)
 			}

@@ -1,0 +1,39 @@
+version: 2
+jobs:
+  build:
+    docker:
+      # specify the version
+      - image: circleci/golang:1.12
+    working_directory: /go/src/github.com/appvia/metal-pod-reaper
+    steps:
+      - checkout
+      - run: make test
+      - run: make src
+
+  docker_build:
+    machine: true
+    steps:
+     - checkout
+     - run: make docker_build
+
+  docker_release:
+    machine: true
+    steps:
+     - checkout
+     # with credentials stored in the UI
+     - run: docker login quay.io --username $QUAY_USERNAME --password $QUAY_PASSWORD
+     - run: make docker_build
+     - run: make docker_push
+
+workflows:
+  version: 2
+  run_release:
+    jobs:
+      - build
+      - docker_build
+      - docker_release:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/

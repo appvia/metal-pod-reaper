@@ -1,4 +1,4 @@
-// Will detect if a node is uncontactable!
+// Package reaper will detect if a node is uncontactable!
 package reaper
 
 import (
@@ -7,6 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 )
 
 // Reap starts deleteing pods from an UnReady node
@@ -21,6 +22,8 @@ func Reap(node *v1.Node, cl *kubernetes.Clientset, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("error reaping: %s", node.Name)
 	}
+	klog.V(4).Infof("set to reap %d pods from %s", len(pods.Items), node.Name)
+
 	var dryRunValue []string
 	if dryRun {
 		dryRunValue = []string{"All"}
@@ -30,11 +33,18 @@ func Reap(node *v1.Node, cl *kubernetes.Clientset, dryRun bool) error {
 	// Equiv to force?
 	orphanDependents := true
 	for _, pod := range pods.Items {
-		cl.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{
+		// could ignore daemonsets or be specific to STS or deploys with volumes
+		// ...but it's a dead node - why care?
+		klog.Infof("reaping %s from %s (dry-run=%t)", pod.Name, node.Name, dryRun)
+		err := cl.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{
 			DryRun:             dryRunValue,
 			OrphanDependents:   &orphanDependents,
 			GracePeriodSeconds: &gracePeriod,
 		})
+		if err != nil {
+			klog.Errorf("error reaping pod %s from %s:%s", pod.Name, node.Name, err)
+		}
+		klog.Infof("pod %s deleted from %s (dry-run=%t)", pod.Name, node.Name, dryRun)
 	}
 	return nil
 }
